@@ -8,21 +8,22 @@ and calloc() and adds simple counting statistics to each call.
 
 ## Short Usage Guide ##
 
-Compile malloc_count.c and link it with your program. The source file
-malloc_count.o should be located towards the end of the .o file sequence.
+Compile `malloc_count.c` and link it with your program. The source file
+malloc_count.o should be located towards the end of the `.o` file sequence.
 
-Run your program and observe that when terminating it outputs a line like
-"malloc_count ### exiting, total: 12,582,912, peak: 4,194,304, current: 0"
+Run your program and observe that when terminating, it outputs a line like
+
+    "malloc_count ### exiting, total: 12,582,912, peak: 4,194,304, current: 0"
 
 If desired, increase verbosity
 
-a) by setting log_operations = 1 at the top of malloc_count.c and adapting
-   log_operations_threshold to output only large allocations.
+1. by setting `log_operations = 1` at the top of `malloc_count.c` and adapting
+   `log_operations_threshold` to output only large allocations.
 
-b) by including malloc_count.h in your program and using the user-functions
+2. by including `malloc_count.h` in your program and using the user-functions
    define therein to output memory usage at specific checkpoints.
 
-Tip: Set the locale environment variable LC_NUMERIC=en_GB or similar to get
+Tip: Set the locale environment variable `LC_NUMERIC=en_GB` or similar to get
 comma-separation of thousands in the printed numbers.
 
 ## Technicalities of Intercepting libc Function Calls ##
