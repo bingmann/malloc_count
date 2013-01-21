@@ -1,4 +1,4 @@
-** README for malloc_count **
+# README for malloc_count #
 
 malloc_count provides a method to measure the amount of allocated memory of a
 program at run-time.
@@ -6,7 +6,7 @@ program at run-time.
 It intercepts the standard heap allocation functions malloc(),free(),realloc()
 and calloc() and adds simple counting statistics to each call. 
 
-*** Short Usage Guide ***
+## Short Usage Guide ##
 
 Compile malloc_count.c and link it with your program. The source file
 malloc_count.o should be located towards the end of the .o file sequence.
@@ -25,7 +25,7 @@ b) by including malloc_count.h in your program and using the user-functions
 Tip: Set the locale environment variable LC_NUMERIC=en_GB or similar to get
 comma-separation of thousands in the printed numbers.
 
-*** Technicalities of Intercepting libc Function Calls ***
+## Technicalities of Intercepting libc Function Calls ##
 
 The method used in malloc_count to hook the standard heap allocation calls is
 to provide a source file exporting the symbols "malloc", "free", etc. These
@@ -43,3 +43,7 @@ allocation size and a sentinel value. Thus when allocating n bytes, in truth n
 + 16 bytes are requested from the libc malloc() to save the size. The sentinel
 only serves as a check that your program has not overwritten the size
 information.
+
+## Closing Credits ##
+
+Written 2013-01-21 by Timo Bingmann <tb@panthema.net>
