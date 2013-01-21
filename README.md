@@ -13,12 +13,12 @@ malloc_count.o should be located towards the end of the `.o` file sequence.
 
 Run your program and observe that when terminating, it outputs a line like
 
-    "malloc_count ### exiting, total: 12,582,912, peak: 4,194,304, current: 0"
+    malloc_count ### exiting, total: 12,582,912, peak: 4,194,304, current: 0
 
 If desired, increase verbosity
 
 1. by setting `log_operations = 1` at the top of `malloc_count.c` and adapting
-   `log_operations_threshold` to output only large allocations.
+   `log_operations_threshold` to output only large allocations, or
 
 2. by including `malloc_count.h` in your program and using the user-functions
    define therein to output memory usage at specific checkpoints.
