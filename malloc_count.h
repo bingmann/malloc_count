@@ -31,6 +31,10 @@
 
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" { /* for inclusion from C++ */
+#endif
+
 /* returns the currently allocated amount of memory */
 extern size_t malloc_count_current(void);
 
@@ -39,6 +43,10 @@ extern size_t malloc_count_peak(void);
 
 /* user function which prints current and peak allocation to stderr */
 extern void malloc_count_print_status(void);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* _MALLOC_COUNT_H_ */
 
