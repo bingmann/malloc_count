@@ -38,9 +38,13 @@ static const int log_operations = 0;    /* <-- set this to 1 for log output */
 static const size_t log_operations_threshold = 1024*1024;
 
 /* function pointer to the real procedures, loaded using dlsym */
-static void* (*real_malloc)(size_t) = NULL;
-static void  (*real_free)(void*) = NULL;
-static void* (*real_realloc)(void*, size_t) = NULL;
+typedef void* (*malloc_type)(size_t);
+typedef void  (*free_type)(void*);
+typedef void* (*realloc_type)(void*, size_t);
+
+static malloc_type real_malloc = NULL;
+static free_type real_free = NULL;
+static realloc_type real_realloc = NULL;
 
 /* a sentinel value prefixed to each allocation */
 static const size_t sentinel = 0xDEADC0DE;
@@ -106,14 +110,14 @@ extern void* malloc(size_t size)
         inc_count(size);
         if (log_operations && size >= log_operations_threshold) {
             fprintf(stderr,"malloc_count ### malloc(%'lld) = %p   (current %'lld)\n",
-                    (long long)size, ret + 2*sizeof(size_t), curr);
+                    (long long)size, (char*)ret + 2*sizeof(size_t), curr);
         }
 
         /* prepend allocation size and check sentinel */
         ((size_t*)ret)[0] = size;
         ((size_t*)ret)[1] = sentinel;
 
-        return ret + 2*sizeof(size_t);
+        return (char*)ret + 2*sizeof(size_t);
     }
     else
     {
@@ -131,10 +135,10 @@ extern void* malloc(size_t size)
 
         if (log_operations_init_heap) {
             fprintf(stderr,"malloc_count ### malloc(%'lld) = %p   on init heap\n",
-                    (long long)size, ret + 2*sizeof(size_t));
+                    (long long)size, (char*)ret + 2*sizeof(size_t));
         }
 
-        return ret + 2*sizeof(size_t);
+        return (char*)ret + 2*sizeof(size_t);
     }
 }
 
@@ -159,7 +163,7 @@ extern void free(void* ptr)
         return;
     }
 
-    ptr -= 2*sizeof(size_t);
+    ptr = (char*)ptr - 2*sizeof(size_t);
 
     if (((size_t*)ptr)[1] != sentinel) {
         fprintf(stderr,"malloc_count ### free(%p) has no sentinel !!! memory corruption?\n", ptr);
@@ -193,14 +197,14 @@ extern void* realloc(void* ptr, size_t size)
     void* newptr;
     size_t oldsize;
 
-    if (ptr >= (void*)init_heap &&
-        ptr <= (void*)init_heap + init_heap_use)
+    if ((char*)ptr >= (char*)init_heap &&
+        (char*)ptr <= (char*)init_heap + init_heap_use)
     {
         if (log_operations_init_heap) {
             fprintf(stderr,"malloc_count ### realloc(%p) = on init heap\n", ptr);
         }
 
-        ptr -= 2*sizeof(size_t);
+        ptr = (char*)ptr - 2*sizeof(size_t);
 
         if (((size_t*)ptr)[1] != sentinel) {
             fprintf(stderr,"malloc_count ### realloc(%p) has no sentinel !!! memory corruption?\n", ptr);
@@ -211,11 +215,11 @@ extern void* realloc(void* ptr, size_t size)
         if (oldsize >= size) {
             /* keep old area, just reduce the size */
             ((size_t*)ptr)[0] = size;
-            return ptr + 2*sizeof(size_t);
+            return (char*)ptr + 2*sizeof(size_t);
         }
         else {
             /* allocate new area and copy data */
-            ptr += 2*sizeof(size_t);
+            ptr = (char*)ptr + 2*sizeof(size_t);
             newptr = malloc(size);
             memcpy(newptr, ptr, oldsize);
             free(ptr);
@@ -232,7 +236,7 @@ extern void* realloc(void* ptr, size_t size)
         return malloc(size);
     }
 
-    ptr -= 2*sizeof(size_t);
+    ptr = (char*)ptr - 2*sizeof(size_t);
 
     if (((size_t*)ptr)[1] != sentinel) {
         fprintf(stderr,"malloc_count ### free(%p) has no sentinel !!! memory corruption?\n", ptr);
@@ -257,7 +261,7 @@ extern void* realloc(void* ptr, size_t size)
 
     ((size_t*)newptr)[0] = size;
 
-    return newptr + 2*sizeof(size_t);
+    return (char*)newptr + 2*sizeof(size_t);
 }
 
 static __attribute__((constructor)) void init(void)
@@ -268,19 +272,19 @@ static __attribute__((constructor)) void init(void)
 
     dlerror();
 
-    real_malloc = dlsym(RTLD_NEXT, "malloc");
+    real_malloc = (malloc_type)dlsym(RTLD_NEXT, "malloc");
     if ((error = dlerror()) != NULL) {
         fprintf(stderr, "malloc_count ### error %s\n", error);
         exit(EXIT_FAILURE);
     }
 
-    real_realloc = dlsym(RTLD_NEXT, "realloc");
+    real_realloc = (realloc_type)dlsym(RTLD_NEXT, "realloc");
     if ((error = dlerror()) != NULL) {
         fprintf(stderr, "malloc_count ### error %s\n", error);
         exit(EXIT_FAILURE);
     }
 
-    real_free = dlsym(RTLD_NEXT, "free");
+    real_free = (free_type)dlsym(RTLD_NEXT, "free");
     if ((error = dlerror()) != NULL) {
         fprintf(stderr, "malloc_count ### error %s\n", error);
         exit(EXIT_FAILURE);
