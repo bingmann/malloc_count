@@ -1,8 +1,7 @@
 /******************************************************************************
- * malloc_count.h
+ * test-malloc_count/test.c
  *
- * Header containing prototypes of user-callable functions to retrieve run-time
- * information about malloc()/free() allocation.
+ * Small program to test malloc_count hooks and user functions.
  *
  ******************************************************************************
  * Copyright (C) 2013 Timo Bingmann <tb@panthema.net>
@@ -26,39 +25,54 @@
  * IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef _MALLOC_COUNT_H_
-#define _MALLOC_COUNT_H_
+#include "malloc_count.h"
+#include "stack_count.h"
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
-#ifdef __cplusplus
-extern "C" { /* for inclusion from C++ */
-#endif
+void function_use_stack()
+{
+    char data[64*1024];
+    memset(data, 1, sizeof(data));
+}
 
-/* returns the currently allocated amount of memory */
-extern size_t malloc_count_current(void);
+int main()
+{
+    /* allocate and free some memory */
+    void* a = malloc(2*1024*1024);
+    free(a);
 
-/* returns the current peak memory allocation */
-extern size_t malloc_count_peak(void);
+    /* query malloc_count for information */
+    printf("our peak memory allocation: %lld\n",
+           (long long)malloc_count_peak());
 
-/* resets the peak memory allocation to current */
-extern void malloc_count_reset_peak(void);
+    /* use realloc() */
+    void* b = malloc(3*1024*1024);
+    malloc_count_print_status();
 
-/* typedef of callback function */
-typedef void (*malloc_count_callback_type)(void* cookie, size_t current);
+    b = realloc(b, 2*1024*1024);
+    malloc_count_print_status();
 
-/* supply malloc_count with a callback function that is invoked on each change
- * of the current allocation. The callback function must not use
- * malloc()/realloc()/free() or it will go into an endless recursive loop! */
-extern void malloc_count_set_callback(malloc_count_callback_type cb, void* cookie);
+    b = realloc(b, 4*1024*1024);
+    malloc_count_print_status();
 
-/* user function which prints current and peak allocation to stderr */
-extern void malloc_count_print_status(void);
+    free(b);
 
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
+    /* some unusual realloc calls */
+    void* c = realloc(NULL, 1*1024*1024);
+    c = realloc(c, 0);
 
-#endif /* _MALLOC_COUNT_H_ */
+    /* show how stack_count works */
+    {
+        void* base = stack_count_clear();
+        function_use_stack();
+        printf("maximum stack usage: %lld\n",
+               (long long)stack_count_usage(base));
+    }
+
+    return 0;
+}
 
 /*****************************************************************************/

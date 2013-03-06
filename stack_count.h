@@ -1,7 +1,7 @@
 /******************************************************************************
- * test.c
+ * stack_count.h
  *
- * Small program to test malloc_count hooks and user functions.
+ * Header containing two functions to monitor stack usage of a program.
  *
  ******************************************************************************
  * Copyright (C) 2013 Timo Bingmann <tb@panthema.net>
@@ -25,38 +25,25 @@
  * IN THE SOFTWARE.
  *****************************************************************************/
 
-#include "malloc_count.h"
+#ifndef _STACK_COUNT_H_
+#define _STACK_COUNT_H_
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <stddef.h>
 
-int main()
-{
-    /* allocate and free some memory */
-    void* a = malloc(2*1024*1024);
-    free(a);
+#ifdef __cplusplus
+extern "C" { /* for inclusion from C++ */
+#endif
 
-    /* query malloc_count for information */
-    printf("our peak memory allocation: %lld\n",
-           (long long)malloc_count_peak());
+/* "clear" the stack by writing a sentinel value into it. */
+extern void* stack_count_clear(void);
 
-    /* use realloc() */
-    void* b = malloc(3*1024*1024);
-    malloc_count_print_status();
+/* checks the maximum usage of the stack since the last clear call. */
+extern size_t stack_count_usage(void* lastbase);
 
-    b = realloc(b, 2*1024*1024);
-    malloc_count_print_status();
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
-    b = realloc(b, 4*1024*1024);
-    malloc_count_print_status();
-
-    free(b);
-
-    /* some unusual realloc calls */
-    void* c = realloc(NULL, 1*1024*1024);
-    c = realloc(c, 0);
-
-    return 0;
-}
+#endif /* _STACK_COUNT_H_ */
 
 /*****************************************************************************/

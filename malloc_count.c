@@ -26,11 +26,14 @@
  * IN THE SOFTWARE.
  *****************************************************************************/
 
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <locale.h>
 #include <dlfcn.h>
+
+#include "malloc_count.h"
 
 /* user-defined options for output malloc()/free() operations to stderr */
 
@@ -61,15 +64,22 @@ static const int log_operations_init_heap = 0;
 
 static long long peak = 0, curr = 0, total = 0;
 
+static malloc_count_callback_type callback = NULL;
+static void* callback_cookie = NULL;
+
 /* add allocation to statistics */
-static void inc_count(size_t inc) {
+static void inc_count(size_t inc)
+{
     if ((curr += inc) > peak) peak = curr;
     total += inc;
+    if (callback) callback(callback_cookie, curr);
 }
 
 /* decrement allocation to statistics */
-static void dec_count(size_t dec) {
+static void dec_count(size_t dec)
+{
     curr -= dec;
+    if (callback) callback(callback_cookie, curr);
 }
 
 /* user function to return the currently allocated amount of memory */
@@ -84,11 +94,24 @@ extern size_t malloc_count_peak(void)
     return peak;
 }
 
+/* user function to reset the peak allocation to current */
+extern void malloc_count_reset_peak(void)
+{
+    peak = curr;
+}
+
 /* user function which prints current and peak allocation to stderr */
 extern void malloc_count_print_status(void)
 {
     fprintf(stderr,"malloc_count ### current %'lld, peak %'lld\n",
             curr, peak);
+}
+
+/* user function to supply a memory profile callback */
+void malloc_count_set_callback(malloc_count_callback_type cb, void* cookie)
+{
+    callback = cb;
+    callback_cookie = cookie;
 }
 
 /****************************************************/

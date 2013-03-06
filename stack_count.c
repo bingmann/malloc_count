@@ -1,8 +1,7 @@
 /******************************************************************************
- * malloc_count.h
+ * stack_count.c
  *
- * Header containing prototypes of user-callable functions to retrieve run-time
- * information about malloc()/free() allocation.
+ * Header containing two functions to monitor stack usage of a program.
  *
  ******************************************************************************
  * Copyright (C) 2013 Timo Bingmann <tb@panthema.net>
@@ -26,39 +25,30 @@
  * IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef _MALLOC_COUNT_H_
-#define _MALLOC_COUNT_H_
+#include "stack_count.h"
 
-#include <stdlib.h>
+#include <inttypes.h>
 
-#ifdef __cplusplus
-extern "C" { /* for inclusion from C++ */
-#endif
+/* default stack size on Linux is 8 MiB, so fill 75% of it. */
+static const size_t stacksize = 6*1024*1024;
 
-/* returns the currently allocated amount of memory */
-extern size_t malloc_count_current(void);
+/* "clear" the stack by writing a sentinel value into it. */
+void* stack_count_clear(void)
+{
+    const size_t asize = stacksize / sizeof(uint32_t);
+    uint32_t stack[asize]; /* allocated on stack */
+    uint32_t* p = stack;
+    while ( p < stack + asize ) *p++ = 0xDEADC0DEu;
+    return p;
+}
 
-/* returns the current peak memory allocation */
-extern size_t malloc_count_peak(void);
-
-/* resets the peak memory allocation to current */
-extern void malloc_count_reset_peak(void);
-
-/* typedef of callback function */
-typedef void (*malloc_count_callback_type)(void* cookie, size_t current);
-
-/* supply malloc_count with a callback function that is invoked on each change
- * of the current allocation. The callback function must not use
- * malloc()/realloc()/free() or it will go into an endless recursive loop! */
-extern void malloc_count_set_callback(malloc_count_callback_type cb, void* cookie);
-
-/* user function which prints current and peak allocation to stderr */
-extern void malloc_count_print_status(void);
-
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
-
-#endif /* _MALLOC_COUNT_H_ */
+/* checks the maximum usage of the stack since the last clear call. */
+size_t stack_count_usage(void* lastbase)
+{
+    const size_t asize = stacksize / sizeof(uint32_t);
+    uint32_t* p = (uint32_t*)lastbase - asize; /* calculate top of last clear. */
+    while ( *p == 0xDEADC0DEu ) ++p;
+    return ((uint32_t*)lastbase - p) * sizeof(uint32_t);
+}
 
 /*****************************************************************************/
