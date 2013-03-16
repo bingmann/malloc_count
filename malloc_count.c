@@ -40,6 +40,9 @@
 static const int log_operations = 0;    /* <-- set this to 1 for log output */
 static const size_t log_operations_threshold = 1024*1024;
 
+/* option to use gcc's intrinsics to do thread-safe statistics operations */
+#define THREAD_SAFE_GCC_INTRINSICS      0
+
 /* function pointer to the real procedures, loaded using dlsym */
 typedef void* (*malloc_type)(size_t);
 typedef void  (*free_type)(void*);
@@ -70,16 +73,28 @@ static void* callback_cookie = NULL;
 /* add allocation to statistics */
 static void inc_count(size_t inc)
 {
+#if THREAD_SAFE_GCC_INTRINSICS
+    long long mycurr = __sync_add_and_fetch(&curr, inc);
+    if (mycurr > peak) peak = mycurr;
+    total += inc;
+    if (callback) callback(callback_cookie, mycurr);
+#else
     if ((curr += inc) > peak) peak = curr;
     total += inc;
     if (callback) callback(callback_cookie, curr);
+#endif
 }
 
 /* decrement allocation to statistics */
 static void dec_count(size_t dec)
 {
+#if THREAD_SAFE_GCC_INTRINSICS
+    long long mycurr = __sync_sub_and_fetch(&curr, dec);
+    if (callback) callback(callback_cookie, mycurr);
+#else
     curr -= dec;
     if (callback) callback(callback_cookie, curr);
+#endif
 }
 
 /* user function to return the currently allocated amount of memory */
