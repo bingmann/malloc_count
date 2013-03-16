@@ -1,7 +1,17 @@
 # README for malloc_count #
 
 `malloc_count` provides a set of source code tools to **measure the amount of
-allocated memory of a program at run-time**.
+allocated memory of a program at run-time**. The code library provides
+facilities to
+
+* measure the **current and peak** heap memory allocation, and
+* write a **memory profile** for plotting, see the figure on the right.
+* Furthermore, separate `stack_count` function can measure **stack usage**.
+
+The code tool works by intercepting the standard `malloc()`, `free()`, etc
+functions. Thus **no changes** are necessary to the inspected source code.
+
+See <http://panthema.net/2013/malloc_count> for the current verison.
 
 ## Intercepting Heap Allocation Functions ##
 
@@ -45,7 +55,7 @@ See <http://panthema.net/2013/malloc_count> for the current verison.
 
 The source code is published under the
 [MIT License (MIT)](http://opensource.org/licenses/MIT), which is also found in
-the header of all source files.</p>
+the header of all source files.
 
 ## Short Usage Guide ##
 
