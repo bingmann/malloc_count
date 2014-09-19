@@ -5,7 +5,7 @@
  * code preparing LD_PRELOAD shared objects.
  *
  ******************************************************************************
- * Copyright (C) 2013 Timo Bingmann <tb@panthema.net>
+ * Copyright (C) 2013-2014 Timo Bingmann <tb@panthema.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -42,6 +42,10 @@ static const size_t log_operations_threshold = 1024*1024;
 
 /* option to use gcc's intrinsics to do thread-safe statistics operations */
 #define THREAD_SAFE_GCC_INTRINSICS      0
+
+/* to each allocation additional data is added for bookkeeping. due to
+ * alignment requirements, we can optionally add more than just one integer. */
+static const size_t alignment = 16; /* bytes (>= 2*sizeof(size_t)) */
 
 /* function pointer to the real procedures, loaded using dlsym */
 typedef void* (*malloc_type)(size_t);
@@ -143,40 +147,40 @@ extern void* malloc(size_t size)
     if (real_malloc)
     {
         /* call read malloc procedure in libc */
-        ret = (*real_malloc)(2*sizeof(size_t) + size);
+        ret = (*real_malloc)(alignment + size);
 
         inc_count(size);
         if (log_operations && size >= log_operations_threshold) {
             fprintf(stderr,"malloc_count ### malloc(%'lld) = %p   (current %'lld)\n",
-                    (long long)size, (char*)ret + 2*sizeof(size_t), curr);
+                    (long long)size, (char*)ret + alignment, curr);
         }
 
         /* prepend allocation size and check sentinel */
-        ((size_t*)ret)[0] = size;
-        ((size_t*)ret)[1] = sentinel;
+        *(size_t*)ret = size;
+        *(size_t*)((char*)ret + alignment - sizeof(size_t)) = sentinel;
 
-        return (char*)ret + 2*sizeof(size_t);
+        return (char*)ret + alignment;
     }
     else
     {
-        if (init_heap_use + sizeof(size_t) + size > INIT_HEAP_SIZE) {
+        if (init_heap_use + alignment + size > INIT_HEAP_SIZE) {
             fprintf(stderr,"malloc_count ### init heap full !!!\n");
             exit(EXIT_FAILURE);
         }
 
         ret = init_heap + init_heap_use;
-        init_heap_use += 2*sizeof(size_t) + size;
+        init_heap_use += alignment + size;
 
         /* prepend allocation size and check sentinel */
-        ((size_t*)ret)[0] = size;
-        ((size_t*)ret)[1] = sentinel;
+        *(size_t*)ret = size;
+        *(size_t*)((char*)ret + alignment - sizeof(size_t)) = sentinel;
 
         if (log_operations_init_heap) {
             fprintf(stderr,"malloc_count ### malloc(%'lld) = %p   on init heap\n",
-                    (long long)size, (char*)ret + 2*sizeof(size_t));
+                    (long long)size, (char*)ret + alignment);
         }
 
-        return (char*)ret + 2*sizeof(size_t);
+        return (char*)ret + alignment;
     }
 }
 
@@ -201,13 +205,13 @@ extern void free(void* ptr)
         return;
     }
 
-    ptr = (char*)ptr - 2*sizeof(size_t);
+    ptr = (char*)ptr - alignment;
 
-    if (((size_t*)ptr)[1] != sentinel) {
+    if (*(size_t*)((char*)ptr + alignment - sizeof(size_t)) != sentinel) {
         fprintf(stderr,"malloc_count ### free(%p) has no sentinel !!! memory corruption?\n", ptr);
     }
 
-    size = ((size_t*)ptr)[0];
+    size = *(size_t*)ptr;
     dec_count(size);
 
     if (log_operations && size >= log_operations_threshold) {
@@ -242,22 +246,22 @@ extern void* realloc(void* ptr, size_t size)
             fprintf(stderr,"malloc_count ### realloc(%p) = on init heap\n", ptr);
         }
 
-        ptr = (char*)ptr - 2*sizeof(size_t);
+        ptr = (char*)ptr - alignment;
 
-        if (((size_t*)ptr)[1] != sentinel) {
+        if (*(size_t*)((char*)ptr + alignment - sizeof(size_t)) != sentinel) {
             fprintf(stderr,"malloc_count ### realloc(%p) has no sentinel !!! memory corruption?\n", ptr);
         }
 
-        oldsize = ((size_t*)ptr)[0];
+        oldsize = *(size_t*)ptr;
 
         if (oldsize >= size) {
             /* keep old area, just reduce the size */
-            ((size_t*)ptr)[0] = size;
-            return (char*)ptr + 2*sizeof(size_t);
+            *(size_t*)ptr = size;
+            return (char*)ptr + alignment;
         }
         else {
             /* allocate new area and copy data */
-            ptr = (char*)ptr + 2*sizeof(size_t);
+            ptr = (char*)ptr + alignment;
             newptr = malloc(size);
             memcpy(newptr, ptr, oldsize);
             free(ptr);
@@ -274,18 +278,18 @@ extern void* realloc(void* ptr, size_t size)
         return malloc(size);
     }
 
-    ptr = (char*)ptr - 2*sizeof(size_t);
+    ptr = (char*)ptr - alignment;
 
-    if (((size_t*)ptr)[1] != sentinel) {
+    if (*(size_t*)((char*)ptr + alignment - sizeof(size_t)) != sentinel) {
         fprintf(stderr,"malloc_count ### free(%p) has no sentinel !!! memory corruption?\n", ptr);
     }
 
-    oldsize = ((size_t*)ptr)[0];
+    oldsize = *(size_t*)ptr;
 
     dec_count(oldsize);
     inc_count(size);
 
-    newptr = (*real_realloc)(ptr, 2*sizeof(size_t) + size);
+    newptr = (*real_realloc)(ptr, alignment + size);
 
     if (log_operations && size >= log_operations_threshold)
     {
@@ -297,9 +301,9 @@ extern void* realloc(void* ptr, size_t size)
                    (long long)oldsize, (long long)size, ptr, newptr, curr);
     }
 
-    ((size_t*)newptr)[0] = size;
+    *(size_t*)newptr = size;
 
-    return (char*)newptr + 2*sizeof(size_t);
+    return (char*)newptr + alignment;
 }
 
 static __attribute__((constructor)) void init(void)
