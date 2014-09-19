@@ -46,7 +46,7 @@ void* stack_count_clear(void)
 size_t stack_count_usage(void* lastbase)
 {
     const size_t asize = stacksize / sizeof(uint32_t);
-    uint32_t* p = (uint32_t*)lastbase - asize; /* calculate top of last clear. */
+    uint32_t* p = (uint32_t*)lastbase - asize; /* calculate top of last clear */
     while ( *p == 0xDEADC0DEu ) ++p;
     return ((uint32_t*)lastbase - p) * sizeof(uint32_t);
 }

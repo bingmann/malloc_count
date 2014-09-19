@@ -50,7 +50,8 @@ typedef void (*malloc_count_callback_type)(void* cookie, size_t current);
 /* supply malloc_count with a callback function that is invoked on each change
  * of the current allocation. The callback function must not use
  * malloc()/realloc()/free() or it will go into an endless recursive loop! */
-extern void malloc_count_set_callback(malloc_count_callback_type cb, void* cookie);
+extern void malloc_count_set_callback(malloc_count_callback_type cb,
+                                      void* cookie);
 
 /* user function which prints current and peak allocation to stderr */
 extern void malloc_count_print_status(void);

@@ -65,6 +65,9 @@ static char init_heap[INIT_HEAP_SIZE];
 static size_t init_heap_use = 0;
 static const int log_operations_init_heap = 0;
 
+/* output */
+#define PPREFIX "malloc_count ### "
+
 /*****************************************/
 /* run-time memory allocation statistics */
 /*****************************************/
@@ -122,7 +125,7 @@ extern void malloc_count_reset_peak(void)
 /* user function which prints current and peak allocation to stderr */
 extern void malloc_count_print_status(void)
 {
-    fprintf(stderr,"malloc_count ### current %'lld, peak %'lld\n",
+    fprintf(stderr, PPREFIX "current %'lld, peak %'lld\n",
             curr, peak);
 }
 
@@ -151,7 +154,7 @@ extern void* malloc(size_t size)
 
         inc_count(size);
         if (log_operations && size >= log_operations_threshold) {
-            fprintf(stderr,"malloc_count ### malloc(%'lld) = %p   (current %'lld)\n",
+            fprintf(stderr, PPREFIX "malloc(%'lld) = %p   (current %'lld)\n",
                     (long long)size, (char*)ret + alignment, curr);
         }
 
@@ -164,7 +167,7 @@ extern void* malloc(size_t size)
     else
     {
         if (init_heap_use + alignment + size > INIT_HEAP_SIZE) {
-            fprintf(stderr,"malloc_count ### init heap full !!!\n");
+            fprintf(stderr, PPREFIX "init heap full !!!\n");
             exit(EXIT_FAILURE);
         }
 
@@ -176,7 +179,7 @@ extern void* malloc(size_t size)
         *(size_t*)((char*)ret + alignment - sizeof(size_t)) = sentinel;
 
         if (log_operations_init_heap) {
-            fprintf(stderr,"malloc_count ### malloc(%'lld) = %p   on init heap\n",
+            fprintf(stderr, PPREFIX "malloc(%'lld) = %p   on init heap\n",
                     (long long)size, (char*)ret + alignment);
         }
 
@@ -195,34 +198,37 @@ extern void free(void* ptr)
         (char*)ptr <= init_heap + init_heap_use)
     {
         if (log_operations_init_heap) {
-            fprintf(stderr,"malloc_count ### free(%p)   on init heap\n", ptr);
+            fprintf(stderr, PPREFIX "free(%p)   on init heap\n", ptr);
         }
         return;
     }
 
     if (!real_free) {
-        fprintf(stderr,"malloc_count ### free(%p) outside init heap and without real_free !!!\n", ptr);
+        fprintf(stderr, PPREFIX
+                "free(%p) outside init heap and without real_free !!!\n", ptr);
         return;
     }
 
     ptr = (char*)ptr - alignment;
 
     if (*(size_t*)((char*)ptr + alignment - sizeof(size_t)) != sentinel) {
-        fprintf(stderr,"malloc_count ### free(%p) has no sentinel !!! memory corruption?\n", ptr);
+        fprintf(stderr, PPREFIX
+                "free(%p) has no sentinel !!! memory corruption?\n", ptr);
     }
 
     size = *(size_t*)ptr;
     dec_count(size);
 
     if (log_operations && size >= log_operations_threshold) {
-        fprintf(stderr,"malloc_count ### free(%p) -> %'lld   (current %'lld)\n",
+        fprintf(stderr, PPREFIX "free(%p) -> %'lld   (current %'lld)\n",
                 ptr, (long long)size, curr);
     }
 
     (*real_free)(ptr);
 }
 
-/* exported calloc() symbol that overrides loading from libc, implemented using our malloc */
+/* exported calloc() symbol that overrides loading from libc, implemented using
+ * our malloc */
 extern void* calloc(size_t nmemb, size_t size)
 {
     void* ret;
@@ -243,13 +249,15 @@ extern void* realloc(void* ptr, size_t size)
         (char*)ptr <= (char*)init_heap + init_heap_use)
     {
         if (log_operations_init_heap) {
-            fprintf(stderr,"malloc_count ### realloc(%p) = on init heap\n", ptr);
+            fprintf(stderr, PPREFIX "realloc(%p) = on init heap\n", ptr);
         }
 
         ptr = (char*)ptr - alignment;
 
         if (*(size_t*)((char*)ptr + alignment - sizeof(size_t)) != sentinel) {
-            fprintf(stderr,"malloc_count ### realloc(%p) has no sentinel !!! memory corruption?\n", ptr);
+            fprintf(stderr, PPREFIX
+                    "realloc(%p) has no sentinel !!! memory corruption?\n",
+                    ptr);
         }
 
         oldsize = *(size_t*)ptr;
@@ -281,7 +289,8 @@ extern void* realloc(void* ptr, size_t size)
     ptr = (char*)ptr - alignment;
 
     if (*(size_t*)((char*)ptr + alignment - sizeof(size_t)) != sentinel) {
-        fprintf(stderr,"malloc_count ### free(%p) has no sentinel !!! memory corruption?\n", ptr);
+        fprintf(stderr, PPREFIX
+                "free(%p) has no sentinel !!! memory corruption?\n", ptr);
     }
 
     oldsize = *(size_t*)ptr;
@@ -294,10 +303,12 @@ extern void* realloc(void* ptr, size_t size)
     if (log_operations && size >= log_operations_threshold)
     {
         if (newptr == ptr)
-            fprintf(stderr,"malloc_count ### realloc(%'lld -> %'lld) = %p   (current %'lld)\n",
+            fprintf(stderr, PPREFIX
+                    "realloc(%'lld -> %'lld) = %p   (current %'lld)\n",
                    (long long)oldsize, (long long)size, newptr, curr);
         else
-            fprintf(stderr,"malloc_count ### realloc(%'lld -> %'lld) = %p -> %p   (current %'lld)\n",
+            fprintf(stderr, PPREFIX
+                    "realloc(%'lld -> %'lld) = %p -> %p   (current %'lld)\n",
                    (long long)oldsize, (long long)size, ptr, newptr, curr);
     }
 
@@ -316,26 +327,27 @@ static __attribute__((constructor)) void init(void)
 
     real_malloc = (malloc_type)dlsym(RTLD_NEXT, "malloc");
     if ((error = dlerror()) != NULL) {
-        fprintf(stderr, "malloc_count ### error %s\n", error);
+        fprintf(stderr,  PPREFIX "error %s\n", error);
         exit(EXIT_FAILURE);
     }
 
     real_realloc = (realloc_type)dlsym(RTLD_NEXT, "realloc");
     if ((error = dlerror()) != NULL) {
-        fprintf(stderr, "malloc_count ### error %s\n", error);
+        fprintf(stderr,  PPREFIX "error %s\n", error);
         exit(EXIT_FAILURE);
     }
 
     real_free = (free_type)dlsym(RTLD_NEXT, "free");
     if ((error = dlerror()) != NULL) {
-        fprintf(stderr, "malloc_count ### error %s\n", error);
+        fprintf(stderr,  PPREFIX "error %s\n", error);
         exit(EXIT_FAILURE);
     }
 }
 
 static __attribute__((destructor)) void finish(void)
 {
-    fprintf(stderr,"malloc_count ### exiting, total: %'lld, peak: %'lld, current: %'lld\n",
+    fprintf(stderr, PPREFIX
+            "exiting, total: %'lld, peak: %'lld, current: %'lld\n",
             total, peak, curr);
 }
 
