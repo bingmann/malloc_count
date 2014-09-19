@@ -22,8 +22,8 @@ counting statistics to each call. Thus the program must be relinked for
 lower levels, and the regular `malloc()` is used for heap allocation.
 
 Of course, `malloc_count` can also be used with C++ programs and maybe even
-script languages, because the `new` operator and script interpreter allocations
-all are based on `malloc`.
+script languages like Python and Perl, because the `new` operator and most
+script interpreters allocations all are based on `malloc`.
 
 The tools are usable under Linux and probably also with Cygwin and MinGW, as
 they too support the standard Linux dynamic link loading mechanisms.
@@ -110,9 +110,10 @@ chain of shared libraries. Calls to the overriding "`malloc`" functions are
 forwarded to the usual libc allocator.
 
 To keep track of the size of each allocated memory area, `malloc_count` uses a
-trick: it prepends each allocation pointer with two `size_t` variables: the
-allocation size and a sentinel value. Thus when allocating *n* bytes, in truth
-*n + 16* bytes are requested from the libc `malloc()` to save the size. The
+trick: it prepends each allocation pointer with two additional bookkeeping
+variables: the allocation size and a sentinel value. Thus when allocating *n*
+bytes, in truth *n + c* bytes are requested from the libc `malloc()` to save the
+size (*c* is by default 16, but can be adapted to fix alignment problems). The
 sentinel only serves as a check that your program has not overwritten the size
 information.
 
@@ -121,4 +122,4 @@ information.
 The idea for this augmenting interception method is not my own, it was borrowed
 from Jeremy Kerr <http://ozlabs.org/~jk/code/>.
 
-Written 2013-01-21 and 2013-03-16 by Timo Bingmann <tb@panthema.net>
+Written 2013-01-21, 2013-03-16, and 2014-09-10 by Timo Bingmann <tb@panthema.net>
