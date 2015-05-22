@@ -72,7 +72,7 @@ static const int log_operations_init_heap = 0;
 /* run-time memory allocation statistics */
 /*****************************************/
 
-static long long peak = 0, curr = 0, total = 0;
+static long long peak = 0, curr = 0, total = 0, local_total = 0, num_allocs = 0;
 
 static malloc_count_callback_type callback = NULL;
 static void* callback_cookie = NULL;
@@ -84,12 +84,15 @@ static void inc_count(size_t inc)
     long long mycurr = __sync_add_and_fetch(&curr, inc);
     if (mycurr > peak) peak = mycurr;
     total += inc;
+    local_total += inc;
     if (callback) callback(callback_cookie, mycurr);
 #else
     if ((curr += inc) > peak) peak = curr;
     total += inc;
+    local_total += inc;
     if (callback) callback(callback_cookie, curr);
 #endif
+    ++num_allocs;
 }
 
 /* decrement allocation to statistics */
@@ -120,6 +123,30 @@ extern size_t malloc_count_peak(void)
 extern void malloc_count_reset_peak(void)
 {
     peak = curr;
+}
+
+/* user function to return total allocation volume */
+extern size_t malloc_count_total(void)
+{
+    return local_total;
+}
+
+/* user function to reset total allocation volume to 0 */
+extern void malloc_count_reset_total(void)
+{
+    local_total = 0;
+}
+
+/* user function to return total number of allocations */
+extern size_t malloc_count_num_allocs(void)
+{
+    return num_allocs;
+}
+
+/* user function to reset total number of allocations */
+extern void malloc_count_reset_num_allocs(void)
+{
+    num_allocs = 0;
 }
 
 /* user function which prints current and peak allocation to stderr */
