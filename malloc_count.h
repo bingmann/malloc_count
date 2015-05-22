@@ -44,6 +44,9 @@ extern size_t malloc_count_peak(void);
 /* resets the peak memory allocation to current */
 extern void malloc_count_reset_peak(void);
 
+/* returns the total number of allocations */
+extern size_t malloc_count_num_allocs(void);
+
 /* typedef of callback function */
 typedef void (*malloc_count_callback_type)(void* cookie, size_t current);
 
