@@ -72,7 +72,7 @@ static const int log_operations_init_heap = 0;
 /* run-time memory allocation statistics */
 /*****************************************/
 
-static long long peak = 0, curr = 0, total = 0;
+static long long peak = 0, curr = 0, total = 0, num_allocs = 0;
 
 static malloc_count_callback_type callback = NULL;
 static void* callback_cookie = NULL;
@@ -90,6 +90,7 @@ static void inc_count(size_t inc)
     total += inc;
     if (callback) callback(callback_cookie, curr);
 #endif
+    ++num_allocs;
 }
 
 /* decrement allocation to statistics */
@@ -120,6 +121,12 @@ extern size_t malloc_count_peak(void)
 extern void malloc_count_reset_peak(void)
 {
     peak = curr;
+}
+
+/* user function to return total number of allocations */
+extern size_t malloc_count_num_allocs(void)
+{
+    return num_allocs;
 }
 
 /* user function which prints current and peak allocation to stderr */
