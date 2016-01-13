@@ -175,7 +175,7 @@ extern void* malloc(size_t size)
     }
     else
     {
-        if (init_heap_use + alignment + size > MALLOC_COUNT_INIT_HEAP_SIZE{
+        if (init_heap_use + alignment + size > MALLOC_COUNT_INIT_HEAP_SIZE) {
             fprintf(stderr, PPREFIX "init heap full !!!\n");
             exit(EXIT_FAILURE);
         }
