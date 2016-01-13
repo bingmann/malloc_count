@@ -60,8 +60,10 @@ static realloc_type real_realloc = NULL;
 static const size_t sentinel = 0xDEADC0DE;
 
 /* a simple memory heap for allocations prior to dlsym loading */
-#define INIT_HEAP_SIZE 1024*1024
-static char init_heap[INIT_HEAP_SIZE];
+#ifndef MALLOC_COUNT_INIT_HEAP_SIZE
+#define MALLOC_COUNT_INIT_HEAP_SIZE 1024*1024
+#endif
+static char init_heap[MALLOC_COUNT_INIT_HEAP_SIZE];
 static size_t init_heap_use = 0;
 static const int log_operations_init_heap = 0;
 
@@ -173,7 +175,7 @@ extern void* malloc(size_t size)
     }
     else
     {
-        if (init_heap_use + alignment + size > INIT_HEAP_SIZE) {
+        if (init_heap_use + alignment + size > MALLOC_COUNT_INIT_HEAP_SIZE) {
             fprintf(stderr, PPREFIX "init heap full !!!\n");
             exit(EXIT_FAILURE);
         }
