@@ -16,7 +16,7 @@
  *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -232,6 +232,18 @@ extern void free(void* ptr)
     }
 
     (*real_free)(ptr);
+}
+
+/* exported strdup() symbol that overrides loading from libc, implemented using
+ * our malloc */
+extern char* strdup ( const char *s )
+{
+  if ( !s ) return NULL;
+
+  size_t size = strlen ( s );
+  char *ret = malloc ( size + 1 );
+  strcpy ( ret, s );
+  return ret;
 }
 
 /* exported calloc() symbol that overrides loading from libc, implemented using
