@@ -132,7 +132,7 @@ extern size_t malloc_count_num_allocs(void)
 /* user function which prints current and peak allocation to stderr */
 extern void malloc_count_print_status(void)
 {
-    fprintf(stderr, PPREFIX "current %'lld, peak %'lld\n",
+    fprintf(stderr, PPREFIX "current %lld, peak %lld\n",
             curr, peak);
 }
 
@@ -161,7 +161,7 @@ extern void* malloc(size_t size)
 
         inc_count(size);
         if (log_operations && size >= log_operations_threshold) {
-            fprintf(stderr, PPREFIX "malloc(%'lld) = %p   (current %'lld)\n",
+            fprintf(stderr, PPREFIX "malloc(%lld) = %p   (current %lld)\n",
                     (long long)size, (char*)ret + alignment, curr);
         }
 
@@ -186,7 +186,7 @@ extern void* malloc(size_t size)
         *(size_t*)((char*)ret + alignment - sizeof(size_t)) = sentinel;
 
         if (log_operations_init_heap) {
-            fprintf(stderr, PPREFIX "malloc(%'lld) = %p   on init heap\n",
+            fprintf(stderr, PPREFIX "malloc(%lld) = %p   on init heap\n",
                     (long long)size, (char*)ret + alignment);
         }
 
@@ -227,7 +227,7 @@ extern void free(void* ptr)
     dec_count(size);
 
     if (log_operations && size >= log_operations_threshold) {
-        fprintf(stderr, PPREFIX "free(%p) -> %'lld   (current %'lld)\n",
+        fprintf(stderr, PPREFIX "free(%p) -> %lld   (current %lld)\n",
                 ptr, (long long)size, curr);
     }
 
@@ -311,11 +311,11 @@ extern void* realloc(void* ptr, size_t size)
     {
         if (newptr == ptr)
             fprintf(stderr, PPREFIX
-                    "realloc(%'lld -> %'lld) = %p   (current %'lld)\n",
+                    "realloc(%lld -> %lld) = %p   (current %lld)\n",
                    (long long)oldsize, (long long)size, newptr, curr);
         else
             fprintf(stderr, PPREFIX
-                    "realloc(%'lld -> %'lld) = %p -> %p   (current %'lld)\n",
+                    "realloc(%lld -> %lld) = %p -> %p   (current %lld)\n",
                    (long long)oldsize, (long long)size, ptr, newptr, curr);
     }
 
@@ -354,7 +354,7 @@ static __attribute__((constructor)) void init(void)
 static __attribute__((destructor)) void finish(void)
 {
     fprintf(stderr, PPREFIX
-            "exiting, total: %'lld, peak: %'lld, current: %'lld\n",
+            "exiting, total: %lld, peak: %lld, current: %lld\n",
             total, peak, curr);
 }
 
