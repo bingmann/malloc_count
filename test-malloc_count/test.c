@@ -32,10 +32,14 @@
 #include <stdio.h>
 #include <string.h>
 
+volatile int prevent_code_removal=0;
 void function_use_stack()
 {
     char data[64*1024];
-    memset(data, 1, sizeof(data));
+    memset(data, prevent_code_removal, sizeof(data));
+	for (int i = 0; i < sizeof(data); i++) {
+		prevent_code_removal *= data[i];
+	}
 }
 
 int main()
