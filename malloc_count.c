@@ -44,15 +44,23 @@ static const size_t log_operations_threshold = 1024*1024;
 #define THREAD_SAFE_GCC_INTRINSICS      0
 
 /* to each allocation additional data is added for bookkeeping. due to
- * alignment requirements, we can optionally add more than just one integer. */
-static const size_t alignment = 16; /* bytes (>= 2*sizeof(size_t)) */
+ * alignment requirements, we can optionally add more than just one integer.
+ *
+ * Each field has 8 bytes (size_t)
+ * ---------------------------------------------------------------------------
+ * | allocation size | extra alignment for aligned_alloc | unused | sentinel |
+ * ---------------------------------------------------------------------------
+ * */
+static const size_t alignment = 32;
 
 /* function pointer to the real procedures, loaded using dlsym */
 typedef void* (*malloc_type)(size_t);
+typedef void* (*aligned_alloc_type)(size_t, size_t);
 typedef void  (*free_type)(void*);
 typedef void* (*realloc_type)(void*, size_t);
 
 static malloc_type real_malloc = NULL;
+static aligned_alloc_type real_aligned_alloc = NULL;
 static free_type real_free = NULL;
 static realloc_type real_realloc = NULL;
 
@@ -156,7 +164,7 @@ extern void* malloc(size_t size)
 
     if (real_malloc)
     {
-        /* call read malloc procedure in libc */
+        /* call real malloc procedure in libc */
         ret = (*real_malloc)(alignment + size);
 
         inc_count(size);
@@ -167,6 +175,7 @@ extern void* malloc(size_t size)
 
         /* prepend allocation size and check sentinel */
         *(size_t*)ret = size;
+        *(size_t*)((char*)ret + sizeof(size_t)) = 0;
         *(size_t*)((char*)ret + alignment - sizeof(size_t)) = sentinel;
 
         return (char*)ret + alignment;
@@ -183,6 +192,7 @@ extern void* malloc(size_t size)
 
         /* prepend allocation size and check sentinel */
         *(size_t*)ret = size;
+        *(size_t*)((char*)ret + sizeof(size_t)) = 0;
         *(size_t*)((char*)ret + alignment - sizeof(size_t)) = sentinel;
 
         if (log_operations_init_heap) {
@@ -194,10 +204,61 @@ extern void* malloc(size_t size)
     }
 }
 
+/* exported aligned_alloc symbol that overrides loading from libc */
+extern void* aligned_alloc(size_t al, size_t size)
+{
+    void* ret;
+
+    if (size == 0) return NULL;
+
+    if (!real_aligned_alloc) {
+        fprintf(stderr, PPREFIX "aligned_alloc in init heap\n");
+        exit(EXIT_FAILURE);
+        return NULL;
+    }
+    else
+    {
+        size_t extra_alignment = 0;
+        if (al >= alignment) {
+            extra_alignment = al - alignment;
+        }
+        /* call real aligned_alloc procedure in libc */
+        ret = (*real_aligned_alloc)(al, size + alignment + extra_alignment);
+        ret = (char*)ret + extra_alignment;
+
+        inc_count(size);
+        if (log_operations && size >= log_operations_threshold) {
+            fprintf(stderr, PPREFIX "aligned_alloc(%'lld, %'lld) = %p   (current %'lld)\n",
+                    (long long) al, (long long)size, (char*)ret + alignment + extra_alignment, curr);
+        }
+
+        /* prepend allocation size and check sentinel */
+        *(size_t*)ret = size;
+        *(size_t*)((char*)ret + sizeof(size_t)) = extra_alignment;
+        *(size_t*)((char*)ret + alignment - sizeof(size_t)) = sentinel;
+
+        return (char*)ret + alignment;
+    }
+}
+
+/* exported posix_memalign symbol that overrides loading from libc */
+int posix_memalign(void **memptr, size_t al, size_t size)
+{
+    *memptr = aligned_alloc(al, size);
+    return 0;
+}
+
+/* exported memalign symbol that overrides loading from libc */
+void *memalign(size_t al, size_t size)
+{
+    return aligned_alloc(al, size);
+}
+
 /* exported free symbol that overrides loading from libc */
 extern void free(void* ptr)
 {
     size_t size;
+    size_t extra_alignment;
 
     if (!ptr) return;   /* free(NULL) is no operation */
 
@@ -224,6 +285,8 @@ extern void free(void* ptr)
     }
 
     size = *(size_t*)ptr;
+    extra_alignment = *(size_t*)(ptr + sizeof(size_t));
+    ptr = (char*)ptr - extra_alignment;
     dec_count(size);
 
     if (log_operations && size >= log_operations_threshold) {
@@ -251,6 +314,7 @@ extern void* realloc(void* ptr, size_t size)
 {
     void* newptr;
     size_t oldsize;
+    size_t extra_alignment;
 
     if ((char*)ptr >= (char*)init_heap &&
         (char*)ptr <= (char*)init_heap + init_heap_use)
@@ -301,11 +365,12 @@ extern void* realloc(void* ptr, size_t size)
     }
 
     oldsize = *(size_t*)ptr;
+    extra_alignment = *(size_t*)(ptr + sizeof(size_t)) = 0;
 
     dec_count(oldsize);
     inc_count(size);
 
-    newptr = (*real_realloc)(ptr, alignment + size);
+    newptr = (*real_realloc)(ptr, size + alignment + extra_alignment);
 
     if (log_operations && size >= log_operations_threshold)
     {
@@ -321,7 +386,7 @@ extern void* realloc(void* ptr, size_t size)
 
     *(size_t*)newptr = size;
 
-    return (char*)newptr + alignment;
+    return (char*)newptr + alignment + extra_alignment;
 }
 
 static __attribute__((constructor)) void init(void)
@@ -333,6 +398,12 @@ static __attribute__((constructor)) void init(void)
     dlerror();
 
     real_malloc = (malloc_type)dlsym(RTLD_NEXT, "malloc");
+    if ((error = dlerror()) != NULL) {
+        fprintf(stderr,  PPREFIX "error %s\n", error);
+        exit(EXIT_FAILURE);
+    }
+
+    real_aligned_alloc = (aligned_alloc_type)dlsym(RTLD_NEXT, "aligned_alloc");
     if ((error = dlerror()) != NULL) {
         fprintf(stderr,  PPREFIX "error %s\n", error);
         exit(EXIT_FAILURE);
